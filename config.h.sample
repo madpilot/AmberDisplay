@@ -1,0 +1,4 @@
+#define WIFI_SSID "Enter your WIFI SSID here"
+#define WIFI_PASSKEY "Enter your WIFI Passkey here"
+#define API_KEY "Enter your Amber API key"
+#define SITE_ID "Enter you Amber Site ID" // To get this, run `curl -H "Authorization: Bearer [AMBER_API_KEY] https://api.amber.com.au/v1/sites" and look for the id
