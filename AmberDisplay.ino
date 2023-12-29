@@ -4,6 +4,13 @@
 #include <math.h>
 
 #include "splash.h"
+#include "price_extremely_low.h"
+#include "price_very_low.h"
+#include "price_low.h"
+#include "price_neutral.h"
+#include "price_high.h"
+#include "price_spike.h"
+#include "font_large.h"
 #include "config.h"
 
 #include <TFT_eSPI.h>
@@ -17,7 +24,7 @@
 
 #define BUFFER_SIZE 1024
 #define WIFI_ATTEMPTS 10
-#define TIMER_DELAY 300000
+#define TIMER_DELAY 60000
 
 TFT_eSPI tft = TFT_eSPI(); 
 TFT_eSprite general_price_sprite = TFT_eSprite(&tft);
@@ -36,6 +43,12 @@ typedef struct _price {
   price_descriptor_t descriptor;
   float price;
 } price_t;
+
+typedef struct _channels {
+  price_t general;
+  price_t feed_in;
+  price_t controlled_load;
+} channels_t;
 
 void setClock() {
   configTime(0, 0, "pool.ntp.org");
@@ -101,7 +114,7 @@ bool connect()
   }
 }
 
-price_t fetch()
+channels_t fetch()
 {
   WiFiClientSecure client;
   client.setInsecure();
@@ -110,9 +123,23 @@ price_t fetch()
 
   String path = String("/v1/sites/") + String(SITE_ID) + String("/prices/current");
 
-  price_t price = {
+  price_t general = {
     .descriptor = DESCRIPTOR_UNKNOWN,
     .price = 0
+  };
+  price_t feed_in = {
+    .descriptor = DESCRIPTOR_UNKNOWN,
+    .price = 0
+  };
+  price_t controlled_load = {
+    .descriptor = DESCRIPTOR_UNKNOWN,
+    .price = 0
+  };
+
+  channels_t channels = {
+    .general = general,
+    .feed_in = feed_in,
+    .controlled_load = controlled_load
   };
 
   http.beginRequest();
@@ -135,7 +162,7 @@ price_t fetch()
       break;
     }
     http.stop();
-    return price;
+    return channels;
   }
 
   String bearerToken = String("Bearer ") + String(API_KEY);
@@ -147,7 +174,7 @@ price_t fetch()
   {
     Serial.printf("ERROR: Received Status Code: %d\n", err);
     http.stop();
-    return price;
+    return channels;
   }
 
   err = http.skipResponseHeaders();
@@ -155,7 +182,7 @@ price_t fetch()
   {
     Serial.printf("ERROR: Unable to skip headers: %d\n", err);
     http.stop();
-    return price;
+    return channels;
   }
 
   
@@ -188,66 +215,77 @@ price_t fetch()
   if (!doc.is<JsonArray>())
   {
     Serial.println("Returned JSON object is not an array");
-    return price;
+    return channels;
   }
 
-  JsonArray channels = doc.as<JsonArray>();
-  for (JsonVariant c : channels)
+  JsonArray jsonChannels = doc.as<JsonArray>();
+  for (JsonVariant c : jsonChannels)
   {
     if (c.is<JsonObject>())
     {
       JsonObject channel = c.as<JsonObject>();
       String channelType = channel["channelType"].as<String>();
+      price_t *price = NULL;
       if (channelType == "general")
       {
-        price.price = channel["perKwh"].as<float>();
+        price = &(channels.general);
+      } else if(channelType == "feedIn") {
+        price = &(channels.feed_in);
+      } else if(channelType == "controlledLoad") {
+        price = &(channels.controlled_load);
+      }
+
+      if(price != NULL) {
+        price->price = channel["perKwh"].as<float>();
+        
         String descriptor = channel["descriptor"].as<String>();
         if (descriptor == String("spike"))
         {
-          price.descriptor = DESCRIPTOR_SPIKE;
+          price->descriptor = DESCRIPTOR_SPIKE;
         }
         else if (descriptor == String("high"))
         {
-          price.descriptor = DESCRIPTOR_HIGH;
+          price->descriptor = DESCRIPTOR_HIGH;
         }
         else if (descriptor == String("neutral"))
         {
-          price.descriptor = DESCRIPTOR_NEUTRAL;
+          price->descriptor = DESCRIPTOR_NEUTRAL;
         }
         else if (descriptor == String("low"))
         {
-          price.descriptor = DESCRIPTOR_LOW;
+          price->descriptor = DESCRIPTOR_LOW;
         }
         else if (descriptor == String("veryLow"))
         {
-          price.descriptor = DESCRIPTOR_VERY_LOW;
+          price->descriptor = DESCRIPTOR_VERY_LOW;
         }
         else
         {
-          price.descriptor = DESCRIPTOR_EXTREMELY_LOW;
+          price->descriptor = DESCRIPTOR_EXTREMELY_LOW;
         }
-        return price;
+        return channels;
       }
     }
   }
 
   Serial.println("Error: General channel not found");
-  return price;
+  return channels;
 }
 
-void renderPrice(TFT_eSprite *sprite, float price, uint16_t text_colour, uint16_t circle_colour) {
+void renderPrice(TFT_eSprite *sprite, float price, uint16_t text_colour, const unsigned short (*background)[32400]) {
+  sprite->loadFont(NotoSansBold36);
   sprite->setTextColor(text_colour);
-  sprite->fillCircle(sprite->width() / 2, sprite->height() / 2, (sprite->height() / 2) - 5, circle_colour);
-  
-  char formatted[5];
+  sprite->pushImage(0, 0, 240, 135, *background);
+  char formatted[7];
   char *ptr = (char *)&formatted;
-  memset(ptr, 0, 5);
-  if(price > 100) {
-    snprintf(ptr, 5, "$%g", round(price / 100));
+  memset(ptr, 0, 7);
+  if(abs(price) > 100) {
+    snprintf(ptr, 7, "$%g", round(price / 100));
   } else {
-    snprintf(ptr, 5, "%gc", round(price));
+    snprintf(ptr, 7, "%gc", round(price));
   }
   sprite->drawString(ptr,  sprite->width() / 2, sprite->height() / 2);
+  sprite->unloadFont();
 }
 
 void setup()
@@ -260,10 +298,11 @@ void setup()
   tft.setRotation(1);
   tft.setSwapBytes(true);
   tft.pushImage(0, 0, 240, 135, splash_image);
-  general_price_sprite.createSprite(tft.height(), tft.height());
+  general_price_sprite.createSprite(tft.width(), tft.height());
   general_price_sprite.setTextSize(3);
   general_price_sprite.setCursor(0, 0); 
   general_price_sprite.setTextDatum(MC_DATUM);
+  general_price_sprite.setSwapBytes(true);
 
   WiFi.begin(WIFI_SSID, WIFI_PASSKEY);
 }
@@ -283,49 +322,44 @@ void loop()
   if ((millis() - lastRun) > TIMER_DELAY)
   {
     Serial.println("Checking the price");
-    price_t price = fetch();
+    channels_t channels = fetch();
 
     tft.fillScreen(TFT_AMBER_DARK_BLUE);
     general_price_sprite.fillScreen(TFT_AMBER_DARK_BLUE);
 
-    if (price.descriptor != DESCRIPTOR_UNKNOWN)
-    {
-      
-      if (price.descriptor == DESCRIPTOR_SPIKE)
-      {
+    switch(channels.general.descriptor) {
+      case DESCRIPTOR_SPIKE: {
         Serial.printf("Price Spike!\n");
-        renderPrice(&general_price_sprite, price.price, TFT_WHITE, TFT_AMBER_DARK_RED);
+        renderPrice(&general_price_sprite, channels.general.price, TFT_WHITE, &price_spike);
+        break;
       }
-      else if (price.descriptor == DESCRIPTOR_HIGH)
-      {
+      case DESCRIPTOR_HIGH: {
         Serial.printf("High prices\n");
-        renderPrice(&general_price_sprite, price.price, TFT_BLACK, TFT_AMBER_RED);
+        renderPrice(&general_price_sprite, channels.general.price, TFT_AMBER_DARK_BLUE, &price_high);
+        break;
       }
-      else if (price.descriptor == DESCRIPTOR_NEUTRAL)
-      {
+      case DESCRIPTOR_NEUTRAL: {
         Serial.printf("Average prices\n");
-        renderPrice(&general_price_sprite, price.price, TFT_BLACK, TFT_AMBER_ORANGE);
-        
+        renderPrice(&general_price_sprite, channels.general.price, TFT_AMBER_DARK_BLUE, &price_neutral);
+        break;
       }
-      else if (price.descriptor == DESCRIPTOR_LOW)
-      {
+      case DESCRIPTOR_LOW: {
         Serial.printf("Low prices\n");
-        renderPrice(&general_price_sprite, price.price, TFT_BLACK, TFT_AMBER_YELLOW);
+        renderPrice(&general_price_sprite, channels.general.price, TFT_AMBER_DARK_BLUE, &price_low);
+        break;
       }
-      else if (price.descriptor == DESCRIPTOR_VERY_LOW)
-      {
+      case DESCRIPTOR_VERY_LOW: {
         Serial.printf("Very Low prices\n");
-        renderPrice(&general_price_sprite, price.price, TFT_BLACK, TFT_AMBER_GREEN);
+        renderPrice(&general_price_sprite, channels.general.price, TFT_AMBER_DARK_BLUE, &price_very_low);
+        break;
       }
-      else
-      {
+      case DESCRIPTOR_EXTREMELY_LOW: {
         Serial.printf("Extremely low prices\n");
-        renderPrice(&general_price_sprite, price.price, TFT_BLACK, TFT_AMBER_GREEN);
+        renderPrice(&general_price_sprite, channels.general.price, TFT_AMBER_DARK_BLUE, &price_extremely_low);
+        break;
       }
-
-      general_price_sprite.pushSprite(tft.width() / 2 - general_price_sprite.width() / 2, 0);
     }
-    
+    general_price_sprite.pushSprite(tft.width() / 2 - general_price_sprite.width() / 2, 0);
     lastRun = millis();
   }
 }
