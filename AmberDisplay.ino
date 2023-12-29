@@ -77,7 +77,7 @@ void setClock() {
   Serial.print(asctime(&timeinfo));
 }
 
-
+bool firstRun = true;
 unsigned long lastRun = 0;
 unsigned long renderLastRun = 0;
 bool connect()
@@ -141,7 +141,7 @@ channels_t fetch()
     .feed_in = feed_in,
     .controlled_load = controlled_load
   };
-
+  
   http.beginRequest();
   err = http.startRequest("api.amber.com.au", 443, path.c_str(), HTTP_METHOD_GET, "ArduinoAmberLight");
   if (err != HTTP_SUCCESS)
@@ -192,7 +192,7 @@ channels_t fetch()
   int i = 0;
   // Leave one character at the end, so the string is always terminated
   while (i < BUFFER_SIZE - 1 && (http.connected() || http.available()) && ((millis() - timeoutStart) < 30000))
-  {
+  {    
     if (http.available())
     {
       json[i++] = http.read();
@@ -204,10 +204,9 @@ channels_t fetch()
     {
       // We haven't got any data, so let's pause to allow some to
       // arrive
-      delay(1000);
+      delay(500);
     }
   }
-
   http.stop();
 
   StaticJsonDocument<BUFFER_SIZE> doc;
@@ -238,37 +237,38 @@ channels_t fetch()
       {
         price = &(channels.controlled_load);
       }
-
-      if(price != NULL) 
+      else
       {
-        price->price = channel["perKwh"].as<float>();
-        
-        String descriptor = channel["descriptor"].as<String>();
-        if (descriptor == String("spike"))
-        {
-          price->descriptor = DESCRIPTOR_SPIKE;
-        }
-        else if (descriptor == String("high"))
-        {
-          price->descriptor = DESCRIPTOR_HIGH;
-        }
-        else if (descriptor == String("neutral"))
-        {
-          price->descriptor = DESCRIPTOR_NEUTRAL;
-        }
-        else if (descriptor == String("low"))
-        {
-          price->descriptor = DESCRIPTOR_LOW;
-        }
-        else if (descriptor == String("veryLow"))
-        {
-          price->descriptor = DESCRIPTOR_VERY_LOW;
-        }
-        else
-        {
-          price->descriptor = DESCRIPTOR_EXTREMELY_LOW;
-        }
-        return channels; // TODO: Remove this
+        continue;
+      }
+
+      
+      price->price = channel["perKwh"].as<float>();
+   
+      String descriptor = channel["descriptor"].as<String>();
+      if (descriptor == String("spike"))
+      {
+        price->descriptor = DESCRIPTOR_SPIKE;
+      }
+      else if (descriptor == String("high"))
+      {
+        price->descriptor = DESCRIPTOR_HIGH;
+      }
+      else if (descriptor == String("neutral"))
+      {
+        price->descriptor = DESCRIPTOR_NEUTRAL;
+      }
+      else if (descriptor == String("low"))
+      {
+        price->descriptor = DESCRIPTOR_LOW;
+      }
+      else if (descriptor == String("veryLow"))
+      {
+        price->descriptor = DESCRIPTOR_VERY_LOW;
+      }
+      else
+      {
+        price->descriptor = DESCRIPTOR_EXTREMELY_LOW;
       }
     }
   }
@@ -327,11 +327,8 @@ void loop()
   {
     Serial.println("Checking the price");
     channels_t channels = fetch();
-
-    tft.fillScreen(TFT_AMBER_DARK_BLUE);
-    general_price_sprite.fillScreen(TFT_AMBER_DARK_BLUE);
-
     price_t *current = &(channels.general);
+    firstRun = false;
 
     switch(current->descriptor) {
       case DESCRIPTOR_SPIKE: {
