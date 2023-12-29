@@ -226,16 +226,21 @@ channels_t fetch()
       JsonObject channel = c.as<JsonObject>();
       String channelType = channel["channelType"].as<String>();
       price_t *price = NULL;
-      if (channelType == "general")
+      if (channelType == String("general"))
       {
         price = &(channels.general);
-      } else if(channelType == "feedIn") {
+      } 
+      else if(channelType == String("feedIn")) 
+      {
         price = &(channels.feed_in);
-      } else if(channelType == "controlledLoad") {
+      } 
+      else if(channelType == String("controlledLoad")) 
+      {
         price = &(channels.controlled_load);
       }
 
-      if(price != NULL) {
+      if(price != NULL) 
+      {
         price->price = channel["perKwh"].as<float>();
         
         String descriptor = channel["descriptor"].as<String>();
@@ -263,12 +268,11 @@ channels_t fetch()
         {
           price->descriptor = DESCRIPTOR_EXTREMELY_LOW;
         }
-        return channels;
+        return channels; // TODO: Remove this
       }
     }
   }
 
-  Serial.println("Error: General channel not found");
   return channels;
 }
 
@@ -327,36 +331,41 @@ void loop()
     tft.fillScreen(TFT_AMBER_DARK_BLUE);
     general_price_sprite.fillScreen(TFT_AMBER_DARK_BLUE);
 
-    switch(channels.general.descriptor) {
+    price_t *current = &(channels.general);
+
+    switch(current->descriptor) {
       case DESCRIPTOR_SPIKE: {
-        Serial.printf("Price Spike!\n");
-        renderPrice(&general_price_sprite, channels.general.price, TFT_WHITE, &price_spike);
+        Serial.printf("Price Spike!: %f\n", current->price);
+        renderPrice(&general_price_sprite, current->price, TFT_WHITE, &price_spike);
         break;
       }
       case DESCRIPTOR_HIGH: {
-        Serial.printf("High prices\n");
-        renderPrice(&general_price_sprite, channels.general.price, TFT_AMBER_DARK_BLUE, &price_high);
+        Serial.printf("High prices: %f\n", current->price);
+        renderPrice(&general_price_sprite, current->price, TFT_AMBER_DARK_BLUE, &price_high);
         break;
       }
       case DESCRIPTOR_NEUTRAL: {
-        Serial.printf("Average prices\n");
-        renderPrice(&general_price_sprite, channels.general.price, TFT_AMBER_DARK_BLUE, &price_neutral);
+        Serial.printf("Average prices: %f\n", current->price);
+        renderPrice(&general_price_sprite, current->price, TFT_AMBER_DARK_BLUE, &price_neutral);
         break;
       }
       case DESCRIPTOR_LOW: {
-        Serial.printf("Low prices\n");
-        renderPrice(&general_price_sprite, channels.general.price, TFT_AMBER_DARK_BLUE, &price_low);
+        Serial.printf("Low prices: %f\n", current->price);
+        renderPrice(&general_price_sprite, current->price, TFT_AMBER_DARK_BLUE, &price_low);
         break;
       }
       case DESCRIPTOR_VERY_LOW: {
-        Serial.printf("Very Low prices\n");
-        renderPrice(&general_price_sprite, channels.general.price, TFT_AMBER_DARK_BLUE, &price_very_low);
+        Serial.printf("Very Low prices: %f\n", current->price);
+        renderPrice(&general_price_sprite, current->price, TFT_AMBER_DARK_BLUE, &price_very_low);
         break;
       }
       case DESCRIPTOR_EXTREMELY_LOW: {
-        Serial.printf("Extremely low prices\n");
-        renderPrice(&general_price_sprite, channels.general.price, TFT_AMBER_DARK_BLUE, &price_extremely_low);
+        Serial.printf("Extremely low prices: %f\n", current->price);
+        renderPrice(&general_price_sprite, current->price, TFT_AMBER_DARK_BLUE, &price_extremely_low);
         break;
+      }
+      default: {
+        Serial.printf("Unknown Price\n");
       }
     }
     general_price_sprite.pushSprite(tft.width() / 2 - general_price_sprite.width() / 2, 0);
