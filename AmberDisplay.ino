@@ -27,7 +27,9 @@
 #define TIMER_DELAY 60000
 
 TFT_eSPI tft = TFT_eSPI(); 
-TFT_eSprite price_sprite = TFT_eSprite(&tft);
+TFT_eSprite price_sprite_a = TFT_eSprite(&tft);
+TFT_eSprite price_sprite_b = TFT_eSprite(&tft);
+
 
 typedef enum {
   DESCRIPTOR_UNKNOWN,
@@ -277,7 +279,7 @@ channels_t fetch()
 void render_price(TFT_eSprite *sprite, float price, uint16_t text_colour, const unsigned short (*background)[18225]) {
   sprite->loadFont(NotoSansBold36);
   sprite->setTextColor(text_colour);
-  sprite->pushImage(0, 0, sprite->width(), sprite->height() / 2, *background);
+  sprite->pushImage(0, 0, sprite->width(), sprite->height(), *background);
   char formatted[7];
   char *ptr = (char *)&formatted;
   memset(ptr, 0, 7);
@@ -286,7 +288,7 @@ void render_price(TFT_eSprite *sprite, float price, uint16_t text_colour, const 
   } else {
     snprintf(ptr, 7, "%gc", round(price));
   }
-  sprite->drawString(ptr, sprite->width() / 2, sprite->height() / 4);
+  sprite->drawString(ptr, sprite->width() / 2, sprite->height() / 2);
   sprite->unloadFont();
 }
 
@@ -396,22 +398,41 @@ void loop()
   if ((millis() - last_run) > TIMER_DELAY)
   {
     Serial.println("Checking the price");
-    if(price_sprite.created()) {
-      price_sprite.deleteSprite();
-    }
     channels_t channels = fetch();
-    price_sprite.createSprite(tft.height(), tft.height() * 2);
-    price_sprite.setTextSize(3);
-    price_sprite.setCursor(0, 0); 
-    price_sprite.setTextDatum(MC_DATUM);
-    price_sprite.setSwapBytes(true);
-    render_general_price(&price_sprite, &(channels.general));
-    //render_feed_in(&price_sprite, &(channels.feed_in));
+    
+    if(price_sprite_a.created()) {
+      price_sprite_a.deleteSprite();
+    }
+    price_sprite_a.createSprite(tft.height(), tft.height());
+    price_sprite_a.setTextSize(3);
+    price_sprite_a.setCursor(0, 0); 
+    price_sprite_a.setTextDatum(MC_DATUM);
+    price_sprite_a.setSwapBytes(true);
+
+    if(price_sprite_b.created()) {
+      price_sprite_b.deleteSprite();
+    }
+    
+    price_sprite_b.createSprite(tft.height(), tft.height());
+    price_sprite_b.setTextSize(3);
+    price_sprite_b.setCursor(0, 0); 
+    price_sprite_b.setTextDatum(MC_DATUM);
+    price_sprite_b.setSwapBytes(true);
+
     if(first_run) {
       first_run = false;
       tft.fillRect(0, 0, 240, 135, TFT_AMBER_DARK_BLUE);
     }
-    price_sprite.pushSprite(tft.width() / 2 - price_sprite.width() / 2, 0);
+    
+    render_general_price(&price_sprite_a, &(channels.general));
+    render_feed_in(&price_sprite_b, &(channels.feed_in));
+    
+    if(first_run) {
+      first_run = false;
+      tft.fillRect(0, 0, 240, 135, TFT_AMBER_DARK_BLUE);
+    }
+    price_sprite_a.pushSprite(tft.width() / 2 - price_sprite_a.width() / 2, tft.height() / 2 - price_sprite_a.height() / 2);
+    price_sprite_b.pushSprite(tft.width() / 2 - price_sprite_b.width() / 2, (tft.height() / 2 - price_sprite_b.height() / 2) + tft.height());
     last_run = millis();
   }
 }
