@@ -10,6 +10,9 @@
 #include "price_neutral.h"
 #include "price_high.h"
 #include "price_spike.h"
+#include "price_negative_feed_in.h"
+#include "price_solar_feed_in.h"
+#include "price_spike_feed_in.h"
 #include "font_large.h"
 #include "config.h"
 
@@ -334,32 +337,32 @@ void render_feed_in(TFT_eSprite *sprite, price_t *price) {
   switch(price->descriptor) {
     case DESCRIPTOR_SPIKE: {
       Serial.printf("Price Spike!: %f\n", price->price);
-      render_price(sprite, -1 * price->price, TFT_AMBER_DARK_BLUE, &price_low);
+      render_price(sprite, -1 * price->price, TFT_AMBER_DARK_BLUE, &price_spike_feed_in);
       break;
     }
     case DESCRIPTOR_HIGH: {
       Serial.printf("High prices: %f\n", price->price);
-      render_price(sprite, -1 * price->price, TFT_AMBER_DARK_BLUE, &price_low);
+      render_price(sprite, -1 * price->price, TFT_AMBER_DARK_BLUE, &price_solar_feed_in);
       break;
     }
     case DESCRIPTOR_NEUTRAL: {
       Serial.printf("Average prices: %f\n", price->price);
-      render_price(sprite, -1 * price->price, TFT_AMBER_DARK_BLUE, &price_low);
+      render_price(sprite, -1 * price->price, TFT_AMBER_DARK_BLUE, &price_solar_feed_in);
       break;
     }
     case DESCRIPTOR_LOW: {
       Serial.printf("Low prices: %f\n", price->price);
-      render_price(sprite, -1 * price->price, TFT_AMBER_DARK_BLUE, &price_low);
+      render_price(sprite, -1 * price->price, TFT_AMBER_DARK_BLUE, &price_solar_feed_in);
       break;
     }
     case DESCRIPTOR_VERY_LOW: {
       Serial.printf("Very Low prices: %f\n", price->price);
-      render_price(sprite, -1 * price->price, TFT_AMBER_DARK_BLUE, &price_low);
+      render_price(sprite, -1 * price->price, TFT_AMBER_DARK_BLUE, &price_solar_feed_in);
       break;
     }
     case DESCRIPTOR_EXTREMELY_LOW: {
       Serial.printf("Extremely low prices: %f\n", price->price);
-      render_price(sprite, -1 * price->price, TFT_AMBER_RED, &price_low);
+      render_price(sprite, -1 * price->price, TFT_AMBER_RED, &price_negative_feed_in);
       break;
     }
     default: {
@@ -431,8 +434,10 @@ void loop()
       first_run = false;
       tft.fillRect(0, 0, 240, 135, TFT_AMBER_DARK_BLUE);
     }
-    price_sprite_a.pushSprite(tft.width() / 2 - price_sprite_a.width() / 2, tft.height() / 2 - price_sprite_a.height() / 2);
-    price_sprite_b.pushSprite(tft.width() / 2 - price_sprite_b.width() / 2, (tft.height() / 2 - price_sprite_b.height() / 2) + tft.height());
+    price_sprite_a.pushSprite(tft.width() / 2 - price_sprite_a.width() / 2, (tft.height() / 2 - price_sprite_a.height() / 2));
+    price_sprite_b.pushSprite(tft.width() / 2 - price_sprite_b.width() / 2, (tft.height() / 2 - price_sprite_b.height() / 2));
     last_run = millis();
   }
+
+  
 }
