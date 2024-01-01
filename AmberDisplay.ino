@@ -16,6 +16,8 @@
 #include "font_large.h"
 #include "config.h"
 
+#include "Button2.h"
+
 #include <TFT_eSPI.h>
 
 #define TFT_AMBER_DARK_BLUE 0x1969
@@ -29,10 +31,25 @@
 #define WIFI_ATTEMPTS 10
 #define TIMER_DELAY 60000
 
+#define BUTTON_1 35
+#define BUTTON_2 0
+
 TFT_eSPI tft = TFT_eSPI(); 
 TFT_eSprite price_sprite_a = TFT_eSprite(&tft);
 TFT_eSprite price_sprite_b = TFT_eSprite(&tft);
 
+TFT_eSprite *general_sprite = &price_sprite_a;
+TFT_eSprite *feed_in_sprite = &price_sprite_b;
+TFT_eSprite *controlled_load_sprite = NULL;
+
+TFT_eSprite *current_sprite = general_sprite;
+TFT_eSprite *next_sprite = NULL;
+
+Button2 button_1(BUTTON_1);
+Button2 button_2(BUTTON_2);
+
+bool animating = false;
+bool first_run = false;
 
 typedef enum {
   DESCRIPTOR_UNKNOWN,
@@ -54,6 +71,25 @@ typedef struct _channels {
   price_t feed_in;
   price_t controlled_load;
 } channels_t;
+
+price_t general = {
+  .descriptor = DESCRIPTOR_UNKNOWN,
+  .price = 0
+};
+price_t feed_in = {
+  .descriptor = DESCRIPTOR_UNKNOWN,
+  .price = 0
+};
+price_t controlled_load = {
+  .descriptor = DESCRIPTOR_UNKNOWN,
+  .price = 0
+};
+
+channels_t channels = {
+  .general = general,
+  .feed_in = feed_in,
+  .controlled_load = controlled_load
+};
 
 void set_clock() {
   configTime(0, 0, "pool.ntp.org");
@@ -125,25 +161,6 @@ channels_t fetch()
   int err = 0;
 
   String path = String("/v1/sites/") + String(SITE_ID) + String("/prices/current");
-
-  price_t general = {
-    .descriptor = DESCRIPTOR_UNKNOWN,
-    .price = 0
-  };
-  price_t feed_in = {
-    .descriptor = DESCRIPTOR_UNKNOWN,
-    .price = 0
-  };
-  price_t controlled_load = {
-    .descriptor = DESCRIPTOR_UNKNOWN,
-    .price = 0
-  };
-
-  channels_t channels = {
-    .general = general,
-    .feed_in = feed_in,
-    .controlled_load = controlled_load
-  };
   
   http.beginRequest();
   err = http.startRequest("api.amber.com.au", 443, path.c_str(), HTTP_METHOD_GET, "ArduinoAmberLight");
@@ -371,12 +388,55 @@ void render_feed_in(TFT_eSprite *sprite, price_t *price) {
   }
 }
 
-bool first_run = false;
+void place_sprites() {
+  int offset = 0;
+  int height = tft.height();
+  int x = tft.width() / 2 - price_sprite_a.width() / 2;
+  int y = tft.height() / 2 - price_sprite_a.height() / 2;
+  current_sprite->pushSprite(x, y);
+}
+
 void setup()
 {
   Serial.begin(115200);
   // Force a run on startup
   last_run = TIMER_DELAY;
+
+  button_1.setPressedHandler([](Button2 & b) {
+      Serial.println("Up...");
+      if(current_sprite == feed_in_sprite) {
+        if(channels.general.descriptor != DESCRIPTOR_UNKNOWN) {
+          current_sprite = general_sprite;
+          place_sprites();
+        } else if(channels.controlled_load.descriptor != DESCRIPTOR_UNKNOWN) {
+          current_sprite = controlled_load_sprite;
+          place_sprites();
+        }
+      } else if(current_sprite == general_sprite) {
+        if(channels.controlled_load.descriptor != DESCRIPTOR_UNKNOWN) {
+          current_sprite = controlled_load_sprite;
+          place_sprites();
+        }
+      }
+  });
+
+  button_2.setPressedHandler([](Button2 & b) {
+      Serial.println("Down...");
+      if(current_sprite == controlled_load_sprite) {
+        if(channels.general.descriptor != DESCRIPTOR_UNKNOWN) {
+          current_sprite = general_sprite;
+          place_sprites();
+        } else if(channels.feed_in.descriptor != DESCRIPTOR_UNKNOWN) {
+          current_sprite = feed_in_sprite;
+          place_sprites();
+        }
+      } else if(current_sprite == general_sprite) {
+        if(channels.feed_in.descriptor != DESCRIPTOR_UNKNOWN) {
+          current_sprite = feed_in_sprite;
+          place_sprites();
+        }
+      }
+  });
 
   tft.init();
   tft.setRotation(1);
@@ -434,10 +494,11 @@ void loop()
       first_run = false;
       tft.fillRect(0, 0, 240, 135, TFT_AMBER_DARK_BLUE);
     }
-    price_sprite_a.pushSprite(tft.width() / 2 - price_sprite_a.width() / 2, (tft.height() / 2 - price_sprite_a.height() / 2));
-    price_sprite_b.pushSprite(tft.width() / 2 - price_sprite_b.width() / 2, (tft.height() / 2 - price_sprite_b.height() / 2));
+
+    place_sprites();
     last_run = millis();
   }
 
-  
+  button_1.loop();
+  button_2.loop();
 }
