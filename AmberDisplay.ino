@@ -274,10 +274,10 @@ channels_t fetch()
   return channels;
 }
 
-void render_price(TFT_eSprite *sprite, float price, uint16_t text_colour, const unsigned short (*background)[32400]) {
+void render_price(TFT_eSprite *sprite, float price, uint16_t text_colour, const unsigned short (*background)[18225]) {
   sprite->loadFont(NotoSansBold36);
   sprite->setTextColor(text_colour);
-  sprite->pushImage(0, 0, 240, 135, *background);
+  sprite->pushImage(0, 0, sprite->width(), sprite->height() / 2, *background);
   char formatted[7];
   char *ptr = (char *)&formatted;
   memset(ptr, 0, 7);
@@ -286,7 +286,7 @@ void render_price(TFT_eSprite *sprite, float price, uint16_t text_colour, const 
   } else {
     snprintf(ptr, 7, "%gc", round(price));
   }
-  sprite->drawString(ptr,  sprite->width() / 2, sprite->height() / 2);
+  sprite->drawString(ptr, sprite->width() / 2, sprite->height() / 4);
   sprite->unloadFont();
 }
 
@@ -366,6 +366,7 @@ void render_feed_in(TFT_eSprite *sprite, price_t *price) {
   }
 }
 
+bool first_run = false;
 void setup()
 {
   Serial.begin(115200);
@@ -376,12 +377,7 @@ void setup()
   tft.setRotation(1);
   tft.setSwapBytes(true);
   tft.pushImage(0, 0, 240, 135, splash_image);
-  price_sprite.createSprite(tft.width(), tft.height());
-  price_sprite.setTextSize(3);
-  price_sprite.setCursor(0, 0); 
-  price_sprite.setTextDatum(MC_DATUM);
-  price_sprite.setSwapBytes(true);
-
+  first_run = true;
   WiFi.begin(WIFI_SSID, WIFI_PASSKEY);
 }
 
@@ -400,9 +396,21 @@ void loop()
   if ((millis() - last_run) > TIMER_DELAY)
   {
     Serial.println("Checking the price");
+    if(price_sprite.created()) {
+      price_sprite.deleteSprite();
+    }
     channels_t channels = fetch();
+    price_sprite.createSprite(tft.height(), tft.height() * 2);
+    price_sprite.setTextSize(3);
+    price_sprite.setCursor(0, 0); 
+    price_sprite.setTextDatum(MC_DATUM);
+    price_sprite.setSwapBytes(true);
     render_general_price(&price_sprite, &(channels.general));
     //render_feed_in(&price_sprite, &(channels.feed_in));
+    if(first_run) {
+      first_run = false;
+      tft.fillRect(0, 0, 240, 135, TFT_AMBER_DARK_BLUE);
+    }
     price_sprite.pushSprite(tft.width() / 2 - price_sprite.width() / 2, 0);
     last_run = millis();
   }
