@@ -5,6 +5,12 @@
 #include "price_neutral.h"
 #include "price_high.h"
 #include "price_spike.h"
+
+#include "price_controlled_load_very_low.h"
+#include "price_controlled_load_low.h"
+#include "price_controlled_load_neutral.h"
+#include "price_controlled_load_high.h"
+
 #include "price_negative_feed_in.h"
 #include "price_solar_feed_in.h"
 #include "price_spike_feed_in.h"
@@ -44,25 +50,25 @@ void render_controlled_load_price(TFT_eSprite *sprite, price_t *price)
   case DESCRIPTOR_HIGH:
   {
     Serial.printf("High prices: %f\n", price->price);
-    render_price(sprite, price->price, TFT_AMBER_DARK_BLUE, &price_high);
+    render_price(sprite, price->price, TFT_AMBER_DARK_BLUE, &price_controlled_load_high);
     break;
   }
   case DESCRIPTOR_NEUTRAL:
   {
     Serial.printf("Average prices: %f\n", price->price);
-    render_price(sprite, price->price, TFT_AMBER_DARK_BLUE, &price_neutral);
+    render_price(sprite, price->price, TFT_AMBER_DARK_BLUE, &price_controlled_load_neutral);
     break;
   }
   case DESCRIPTOR_LOW:
   {
     Serial.printf("Low prices: %f\n", price->price);
-    render_price(sprite, price->price, TFT_AMBER_DARK_BLUE, &price_low);
+    render_price(sprite, price->price, TFT_AMBER_DARK_BLUE, &price_controlled_load_low);
     break;
   }
   case DESCRIPTOR_VERY_LOW:
   {
     Serial.printf("Very Low prices: %f\n", price->price);
-    render_price(sprite, price->price, TFT_AMBER_DARK_BLUE, &price_very_low);
+    render_price(sprite, price->price, TFT_AMBER_DARK_BLUE, &price_controlled_load_very_low);
     break;
   }
   case DESCRIPTOR_EXTREMELY_LOW:
