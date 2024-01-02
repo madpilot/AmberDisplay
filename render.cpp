@@ -8,6 +8,7 @@
 #include "price_negative_feed_in.h"
 #include "price_solar_feed_in.h"
 #include "price_spike_feed_in.h"
+#include "price_error.h"
 #include "font_large.h"
 
 void render_price(TFT_eSprite *sprite, float price, uint16_t text_colour, const unsigned short (*background)[18225])
@@ -73,6 +74,7 @@ void render_controlled_load_price(TFT_eSprite *sprite, price_t *price)
   default:
   {
     Serial.printf("Unknown Controlled Load Price\n");
+    sprite->pushImage(0, 0, sprite->width(), sprite->height(), price_error);
   }
   }
 }
@@ -120,6 +122,7 @@ void render_general_price(TFT_eSprite *sprite, price_t *price)
   default:
   {
     Serial.printf("Unknown General Price\n");
+    sprite->pushImage(0, 0, sprite->width(), sprite->height(), price_error);
   }
   }
 }
@@ -167,6 +170,7 @@ void render_feed_in(TFT_eSprite *sprite, price_t *price)
   default:
   {
     Serial.printf("Unknown Feed In Price\n");
+    sprite->pushImage(0, 0, sprite->width(), sprite->height(), price_error);
   }
   }
 }
