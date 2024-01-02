@@ -38,6 +38,7 @@ void render_controlled_load_price(TFT_eSprite *sprite, price_t *price);
 void render_general_price(TFT_eSprite *sprite, price_t *price);
 void render_feed_in(TFT_eSprite *sprite, price_t *price);
 void render_pills(TFT_eSPI *tft, channels_t *channels, screens_t *current_screen);
+void render_icons(TFT_eSPI *tft, channels_t *channels, screens_t *current_screen);
 
 bool animating(animation_state_t *state);
 void animate(animation_state_t *state);

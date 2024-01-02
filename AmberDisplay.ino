@@ -317,6 +317,7 @@ void on_up_button(Button2 &btn)
     }
   }
   render_pills(&tft, &channels, &current_screen);
+  render_icons(&tft, &channels, &current_screen);
 }
 
 void on_down_button(Button2 &btn)
@@ -351,6 +352,7 @@ void on_down_button(Button2 &btn)
     }
   }
   render_pills(&tft, &channels, &current_screen);
+  render_icons(&tft, &channels, &current_screen);
 }
 
 void setup()
@@ -416,6 +418,7 @@ void loop()
     price_sprite_a.pushSprite(x, y);
 
     render_pills(&tft, &channels, &current_screen);
+    render_icons(&tft, &channels, &current_screen);
     last_run = millis();
   }
 

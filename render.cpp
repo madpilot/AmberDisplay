@@ -17,6 +17,10 @@
 #include "price_error.h"
 #include "font_large.h"
 
+#include "general_icon.h"
+#include "controlled_load_icon.h"
+#include "feed_in_icon.h"
+
 void render_price(TFT_eSprite *sprite, float price, uint16_t text_colour, const unsigned short (*background)[18225])
 {
   sprite->loadFont(NotoSansBold36);
@@ -232,6 +236,79 @@ void render_pills(TFT_eSPI *tft, channels_t *channels, screens_t *current_screen
       tft->fillCircle(x, start + (i * space), 4, TFT_AMBER_DARK_BLUE);
       tft->fillCircle(x, start + (i * space), 3, TFT_DARKGREY);
     }
+  }
+}
+
+void render_icons(TFT_eSPI *tft, channels_t *channels, screens_t *current_screen)
+{
+  uint8_t padding = 2;
+  uint8_t height = 18;
+  uint8_t width = 18;
+
+  switch (*current_screen)
+  {
+  case SCREEN_CONTROLLED_LOAD:
+  {
+    // Clear the top icon
+    tft->fillRect(tft->width() - width - padding, padding, width, height, TFT_AMBER_DARK_BLUE);
+
+    if (channels->general.descriptor != DESCRIPTOR_UNKNOWN)
+    {
+      tft->pushImage(tft->width() - width - padding, tft->height() - height - padding, width, height, general_icon);
+    }
+    else if (channels->feed_in.descriptor != DESCRIPTOR_UNKNOWN)
+    {
+      tft->pushImage(tft->width() - width - padding, tft->height() - height - padding, width, height, feed_in_icon);
+    }
+    else
+    {
+      // Clear the bottom icon.
+      tft->fillRect(tft->width() - width - padding, tft->height() - height - padding, width, height, TFT_AMBER_DARK_BLUE);
+    }
+    break;
+  }
+  case SCREEN_GENERAL:
+  {
+    if (channels->controlled_load.descriptor != DESCRIPTOR_UNKNOWN)
+    {
+      tft->pushImage(tft->width() - width - padding, padding, width, height, controlled_load_icon);
+    }
+    else
+    {
+      // Clear the top icon
+      tft->fillRect(tft->width() - width - padding, padding, width, height, TFT_AMBER_DARK_BLUE);
+    }
+    if (channels->feed_in.descriptor != DESCRIPTOR_UNKNOWN)
+    {
+      tft->pushImage(tft->width() - width - padding, tft->height() - height - padding, width, height, feed_in_icon);
+    }
+    else
+    {
+      // Clear the bottom icon.
+      tft->fillRect(tft->width() - width - padding, tft->height() - height - padding, width, height, TFT_AMBER_DARK_BLUE);
+    }
+    break;
+  }
+  case SCREEN_FEED_IN:
+  {
+    // Clear the bottom icon.
+    tft->fillRect(tft->width() - width - padding, tft->height() - height - padding, width, height, TFT_AMBER_DARK_BLUE);
+
+    if (channels->general.descriptor != DESCRIPTOR_UNKNOWN)
+    {
+      tft->pushImage(tft->width() - width - padding, padding, width, height, general_icon);
+    }
+    else if (channels->controlled_load.descriptor != DESCRIPTOR_UNKNOWN)
+    {
+      tft->pushImage(tft->width() - width - padding, padding, width, height, controlled_load_icon);
+    }
+    else
+    {
+      // Clear the top icon
+      tft->fillRect(tft->width() - width - padding, padding, width, height, TFT_AMBER_DARK_BLUE);
+    }
+    break;
+  }
   }
 }
 
