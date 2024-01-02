@@ -22,14 +22,6 @@
 #define BUTTON_UP 35
 #define BUTTON_DOWN 0
 
-typedef enum
-{
-  SCREEN_SPLASH,
-  SCREEN_CONTROLLED_LOAD,
-  SCREEN_GENERAL,
-  SCREEN_FEED_IN,
-} screens_t;
-
 TFT_eSPI tft = TFT_eSPI();
 TFT_eSprite price_sprite_a = TFT_eSprite(&tft);
 TFT_eSprite price_sprite_b = TFT_eSprite(&tft);
@@ -324,6 +316,7 @@ void on_up_button(Button2 &btn)
       start_animation(ANIMATION_SPEED, DIRECTION_UP);
     }
   }
+  render_pills(&tft, &channels, &current_screen);
 }
 
 void on_down_button(Button2 &btn)
@@ -357,6 +350,7 @@ void on_down_button(Button2 &btn)
       start_animation(ANIMATION_SPEED, DIRECTION_DOWN);
     }
   }
+  render_pills(&tft, &channels, &current_screen);
 }
 
 void setup()
@@ -421,6 +415,7 @@ void loop()
     int y = tft.height() / 2 - price_sprite_a.height() / 2;
     price_sprite_a.pushSprite(x, y);
 
+    render_pills(&tft, &channels, &current_screen);
     last_run = millis();
   }
 
@@ -430,6 +425,6 @@ void loop()
     last_animation = millis();
   }
 
-  button_1.loop();
-  button_2.loop();
+  button_up.loop();
+  button_down.loop();
 }

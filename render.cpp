@@ -175,6 +175,60 @@ void render_feed_in(TFT_eSprite *sprite, price_t *price)
   }
 }
 
+void render_pills(TFT_eSPI *tft, channels_t *channels, screens_t *current_screen)
+{
+  uint8_t screen_count = 0;
+  uint8_t current = 0;
+  if (channels->general.descriptor != DESCRIPTOR_UNKNOWN)
+  {
+    if (*current_screen == SCREEN_GENERAL)
+    {
+      current = screen_count;
+    }
+    screen_count++;
+  }
+  if (channels->feed_in.descriptor != DESCRIPTOR_UNKNOWN)
+  {
+    if (*current_screen == SCREEN_FEED_IN)
+    {
+      current = screen_count;
+    }
+    screen_count++;
+  }
+  if (channels->controlled_load.descriptor != DESCRIPTOR_UNKNOWN)
+  {
+    if (*current_screen == SCREEN_CONTROLLED_LOAD)
+    {
+      current = screen_count;
+    }
+    screen_count++;
+  }
+
+  if (screen_count < 2)
+  {
+    return;
+  }
+
+  uint8_t x = 16;
+  uint8_t y = tft->height() / 2;
+  uint8_t height = 60;
+  uint8_t space = (height / screen_count);
+  uint8_t start = screen_count % 2 == 0 ? y - (space / screen_count) : y - space;
+
+  for (uint8_t i = 0; i < screen_count; i++)
+  {
+    if (i == current)
+    {
+      tft->fillCircle(x, start + (i * space), 4, TFT_WHITE);
+    }
+    else
+    {
+      tft->fillCircle(x, start + (i * space), 4, TFT_AMBER_DARK_BLUE);
+      tft->fillCircle(x, start + (i * space), 3, TFT_DARKGREY);
+    }
+  }
+}
+
 bool animating(animation_state_t *state)
 {
   return state->current_frame < state->target_frame;

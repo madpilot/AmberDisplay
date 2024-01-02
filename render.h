@@ -12,6 +12,14 @@
 
 typedef enum
 {
+  SCREEN_SPLASH,
+  SCREEN_CONTROLLED_LOAD,
+  SCREEN_GENERAL,
+  SCREEN_FEED_IN,
+} screens_t;
+
+typedef enum
+{
   DIRECTION_UP = -1,
   DIRECTION_DOWN = 1
 } animation_direction_t;
@@ -29,6 +37,7 @@ typedef struct _animation_state
 void render_controlled_load_price(TFT_eSprite *sprite, price_t *price);
 void render_general_price(TFT_eSprite *sprite, price_t *price);
 void render_feed_in(TFT_eSprite *sprite, price_t *price);
+void render_pills(TFT_eSPI *tft, channels_t *channels, screens_t *current_screen);
 
 bool animating(animation_state_t *state);
 void animate(animation_state_t *state);
