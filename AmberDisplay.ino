@@ -3,29 +3,14 @@
 #include <ArduinoJson.h>
 #include <math.h>
 
+#include "price.h"
 #include "splash.h"
-#include "price_extremely_low.h"
-#include "price_very_low.h"
-#include "price_low.h"
-#include "price_neutral.h"
-#include "price_high.h"
-#include "price_spike.h"
-#include "price_negative_feed_in.h"
-#include "price_solar_feed_in.h"
-#include "price_spike_feed_in.h"
-#include "font_large.h"
 #include "config.h"
+#include "render.h"
 
 #include "Button2.h"
 
 #include <TFT_eSPI.h>
-
-#define TFT_AMBER_DARK_BLUE 0x1969
-#define TFT_AMBER_GREEN 0x07F4
-#define TFT_AMBER_YELLOW 0xFEE9
-#define TFT_AMBER_ORANGE 0xFD41
-#define TFT_AMBER_RED 0xF38C
-#define TFT_AMBER_DARK_RED 0xB8C1
 
 #define BUFFER_SIZE 1024
 #define WIFI_ATTEMPTS 10
@@ -34,16 +19,17 @@
 #define BUTTON_1 35
 #define BUTTON_2 0
 
-TFT_eSPI tft = TFT_eSPI(); 
+typedef enum
+{
+  SCREEN_SPLASH,
+  SCREEN_CONTROLLED_LOAD,
+  SCREEN_GENERAL,
+  SCREEN_FEED_IN,
+} screens_t;
+
+TFT_eSPI tft = TFT_eSPI();
 TFT_eSprite price_sprite_a = TFT_eSprite(&tft);
 TFT_eSprite price_sprite_b = TFT_eSprite(&tft);
-
-TFT_eSprite *general_sprite = &price_sprite_a;
-TFT_eSprite *feed_in_sprite = &price_sprite_b;
-TFT_eSprite *controlled_load_sprite = NULL;
-
-TFT_eSprite *current_sprite = general_sprite;
-TFT_eSprite *next_sprite = NULL;
 
 Button2 button_1(BUTTON_1);
 Button2 button_2(BUTTON_2);
@@ -51,58 +37,40 @@ Button2 button_2(BUTTON_2);
 bool animating = false;
 bool first_run = false;
 
-typedef enum {
-  DESCRIPTOR_UNKNOWN,
-  DESCRIPTOR_EXTREMELY_LOW,
-  DESCRIPTOR_VERY_LOW,
-  DESCRIPTOR_LOW,
-  DESCRIPTOR_NEUTRAL,
-  DESCRIPTOR_HIGH,
-  DESCRIPTOR_SPIKE,
-} price_descriptor_t;
-
-typedef struct _price {
-  price_descriptor_t descriptor;
-  float price;
-} price_t;
-
-typedef struct _channels {
-  price_t general;
-  price_t feed_in;
-  price_t controlled_load;
-} channels_t;
-
 price_t general = {
-  .descriptor = DESCRIPTOR_UNKNOWN,
-  .price = 0
-};
+    .descriptor = DESCRIPTOR_UNKNOWN,
+    .price = 0};
 price_t feed_in = {
-  .descriptor = DESCRIPTOR_UNKNOWN,
-  .price = 0
-};
+    .descriptor = DESCRIPTOR_UNKNOWN,
+    .price = 0};
 price_t controlled_load = {
-  .descriptor = DESCRIPTOR_UNKNOWN,
-  .price = 0
-};
+    .descriptor = DESCRIPTOR_UNKNOWN,
+    .price = 0};
 
 channels_t channels = {
-  .general = general,
-  .feed_in = feed_in,
-  .controlled_load = controlled_load
-};
+    .general = general,
+    .feed_in = feed_in,
+    .controlled_load = controlled_load};
 
-void set_clock() {
+screens_t current_screen = SCREEN_SPLASH;
+
+void set_clock()
+{
   configTime(0, 0, "pool.ntp.org");
 
   Serial.print(F("Waiting for NTP time sync: "));
   time_t now_secs = time(nullptr);
   int attempts = 0;
-  while (now_secs < 8 * 3600 * 2) {
+  while (now_secs < 8 * 3600 * 2)
+  {
     delay(500);
     Serial.print(F("."));
-    if(attempts % 2 == 0) {
+    if (attempts % 2 == 0)
+    {
       tft.fillRect(93, 125, 54, 3, TFT_AMBER_GREEN);
-    } else {
+    }
+    else
+    {
       tft.fillRect(93, 125, 54, 3, TFT_AMBER_DARK_BLUE);
     }
     attempts++;
@@ -128,9 +96,12 @@ bool connect()
   {
     delay(500);
     Serial.print(".");
-    if(attempts % 2 == 0) {
+    if (attempts % 2 == 0)
+    {
       tft.fillRect(26, 125, 54, 3, TFT_AMBER_GREEN);
-    } else {
+    }
+    else
+    {
       tft.fillRect(26, 125, 54, 3, TFT_AMBER_DARK_BLUE);
     }
     attempts++;
@@ -148,7 +119,7 @@ bool connect()
   {
     Serial.print("Connected to WiFi network with IP Address: ");
     Serial.println(WiFi.localIP());
-    set_clock();  
+    set_clock();
     return true;
   }
 }
@@ -161,7 +132,7 @@ channels_t fetch()
   int err = 0;
 
   String path = String("/v1/sites/") + String(SITE_ID) + String("/prices/current");
-  
+
   http.beginRequest();
   err = http.startRequest("api.amber.com.au", 443, path.c_str(), HTTP_METHOD_GET, "ArduinoAmberLight");
   if (err != HTTP_SUCCESS)
@@ -205,14 +176,13 @@ channels_t fetch()
     return channels;
   }
 
-  
   unsigned long timeout_start = millis();
   char json[BUFFER_SIZE];
   memset((char *)&json, 0, BUFFER_SIZE);
   int i = 0;
   // Leave one character at the end, so the string is always terminated
   while (i < BUFFER_SIZE - 1 && (http.connected() || http.available()) && ((millis() - timeout_start) < 30000))
-  {    
+  {
     if (http.available())
     {
       json[i++] = http.read();
@@ -248,12 +218,12 @@ channels_t fetch()
       if (channel_type == String("general"))
       {
         price = &(channels.general);
-      } 
-      else if(channel_type == String("feedIn")) 
+      }
+      else if (channel_type == String("feedIn"))
       {
         price = &(channels.feed_in);
-      } 
-      else if(channel_type == String("controlledLoad")) 
+      }
+      else if (channel_type == String("controlledLoad"))
       {
         price = &(channels.controlled_load);
       }
@@ -262,9 +232,8 @@ channels_t fetch()
         continue;
       }
 
-      
       price->price = channel["perKwh"].as<float>();
-   
+
       String descriptor = channel["descriptor"].as<String>();
       if (descriptor == String("spike"))
       {
@@ -296,104 +265,67 @@ channels_t fetch()
   return channels;
 }
 
-void render_price(TFT_eSprite *sprite, float price, uint16_t text_colour, const unsigned short (*background)[18225]) {
-  sprite->loadFont(NotoSansBold36);
-  sprite->setTextColor(text_colour);
-  sprite->pushImage(0, 0, sprite->width(), sprite->height(), *background);
-  char formatted[7];
-  char *ptr = (char *)&formatted;
-  memset(ptr, 0, 7);
-  if(abs(price) > 100) {
-    snprintf(ptr, 7, "$%g", round(price / 100));
-  } else {
-    snprintf(ptr, 7, "%gc", round(price));
-  }
-  sprite->drawString(ptr, sprite->width() / 2, sprite->height() / 2);
-  sprite->unloadFont();
-}
-
-void render_general_price(TFT_eSprite *sprite, price_t *price) {
-  switch(price->descriptor) {
-    case DESCRIPTOR_SPIKE: {
-      Serial.printf("Price Spike!: %f\n", price->price);
-      render_price(sprite, price->price, TFT_WHITE, &price_spike);
-      break;
-    }
-    case DESCRIPTOR_HIGH: {
-      Serial.printf("High prices: %f\n", price->price);
-      render_price(sprite, price->price, TFT_AMBER_DARK_BLUE, &price_high);
-      break;
-    }
-    case DESCRIPTOR_NEUTRAL: {
-      Serial.printf("Average prices: %f\n", price->price);
-      render_price(sprite, price->price, TFT_AMBER_DARK_BLUE, &price_neutral);
-      break;
-    }
-    case DESCRIPTOR_LOW: {
-      Serial.printf("Low prices: %f\n", price->price);
-      render_price(sprite, price->price, TFT_AMBER_DARK_BLUE, &price_low);
-      break;
-    }
-    case DESCRIPTOR_VERY_LOW: {
-      Serial.printf("Very Low prices: %f\n", price->price);
-      render_price(sprite, price->price, TFT_AMBER_DARK_BLUE, &price_very_low);
-      break;
-    }
-    case DESCRIPTOR_EXTREMELY_LOW: {
-      Serial.printf("Extremely low prices: %f\n", price->price);
-      render_price(sprite, price->price, TFT_AMBER_DARK_BLUE, &price_extremely_low);
-      break;
-    }
-    default: {
-      Serial.printf("Unknown Price\n");
-    }
-  }
-}
-
-void render_feed_in(TFT_eSprite *sprite, price_t *price) {
-  switch(price->descriptor) {
-    case DESCRIPTOR_SPIKE: {
-      Serial.printf("Price Spike!: %f\n", price->price);
-      render_price(sprite, -1 * price->price, TFT_AMBER_DARK_BLUE, &price_spike_feed_in);
-      break;
-    }
-    case DESCRIPTOR_HIGH: {
-      Serial.printf("High prices: %f\n", price->price);
-      render_price(sprite, -1 * price->price, TFT_AMBER_DARK_BLUE, &price_solar_feed_in);
-      break;
-    }
-    case DESCRIPTOR_NEUTRAL: {
-      Serial.printf("Average prices: %f\n", price->price);
-      render_price(sprite, -1 * price->price, TFT_AMBER_DARK_BLUE, &price_solar_feed_in);
-      break;
-    }
-    case DESCRIPTOR_LOW: {
-      Serial.printf("Low prices: %f\n", price->price);
-      render_price(sprite, -1 * price->price, TFT_AMBER_DARK_BLUE, &price_solar_feed_in);
-      break;
-    }
-    case DESCRIPTOR_VERY_LOW: {
-      Serial.printf("Very Low prices: %f\n", price->price);
-      render_price(sprite, -1 * price->price, TFT_AMBER_DARK_BLUE, &price_solar_feed_in);
-      break;
-    }
-    case DESCRIPTOR_EXTREMELY_LOW: {
-      Serial.printf("Extremely low prices: %f\n", price->price);
-      render_price(sprite, -1 * price->price, TFT_AMBER_RED, &price_negative_feed_in);
-      break;
-    }
-    default: {
-      Serial.printf("Unknown Price\n");
-    }
-  }
-}
-
-void place_sprites() {
+void place_sprites()
+{
   int offset = 0;
   int height = tft.height();
   int x = tft.width() / 2 - price_sprite_a.width() / 2;
   int y = tft.height() / 2 - price_sprite_a.height() / 2;
-  current_sprite->pushSprite(x, y);
+  price_sprite_a.pushSprite(x, y);
+}
+
+void onUp(Button2 &btn)
+{
+  if (current_screen == SCREEN_GENERAL)
+  {
+    if (channels.controlled_load.descriptor != DESCRIPTOR_UNKNOWN)
+    {
+      current_screen = SCREEN_CONTROLLED_LOAD;
+      render_controlled_load_price(&price_sprite_a, &(channels.controlled_load));
+    }
+  }
+  else if (current_screen == SCREEN_FEED_IN)
+  {
+    if (channels.general.descriptor != DESCRIPTOR_UNKNOWN)
+    {
+      current_screen = SCREEN_GENERAL;
+      render_general_price(&price_sprite_a, &(channels.general));
+    }
+    else if (channels.controlled_load.descriptor != DESCRIPTOR_UNKNOWN)
+    {
+      current_screen = SCREEN_CONTROLLED_LOAD;
+      render_controlled_load_price(&price_sprite_a, &(channels.controlled_load));
+    }
+  }
+  place_sprites();
+}
+
+void onDown(Button2 &btn)
+{
+  if (current_screen == SCREEN_GENERAL)
+  {
+    Serial.println("Current Screen: General");
+    if (channels.feed_in.descriptor != DESCRIPTOR_UNKNOWN)
+    {
+      current_screen = SCREEN_FEED_IN;
+      Serial.println("Rendering Feed in");
+      render_feed_in(&price_sprite_a, &(channels.feed_in));
+    }
+  }
+  else if (current_screen == SCREEN_CONTROLLED_LOAD)
+  {
+    if (channels.general.descriptor != DESCRIPTOR_UNKNOWN)
+    {
+      current_screen = SCREEN_GENERAL;
+      render_general_price(&price_sprite_a, &(channels.general));
+    }
+    else if (channels.feed_in.descriptor != DESCRIPTOR_UNKNOWN)
+    {
+      current_screen = SCREEN_FEED_IN;
+      render_feed_in(&price_sprite_a, &(channels.feed_in));
+    }
+  }
+  place_sprites();
 }
 
 void setup()
@@ -402,41 +334,8 @@ void setup()
   // Force a run on startup
   last_run = TIMER_DELAY;
 
-  button_1.setPressedHandler([](Button2 & b) {
-      Serial.println("Up...");
-      if(current_sprite == feed_in_sprite) {
-        if(channels.general.descriptor != DESCRIPTOR_UNKNOWN) {
-          current_sprite = general_sprite;
-          place_sprites();
-        } else if(channels.controlled_load.descriptor != DESCRIPTOR_UNKNOWN) {
-          current_sprite = controlled_load_sprite;
-          place_sprites();
-        }
-      } else if(current_sprite == general_sprite) {
-        if(channels.controlled_load.descriptor != DESCRIPTOR_UNKNOWN) {
-          current_sprite = controlled_load_sprite;
-          place_sprites();
-        }
-      }
-  });
-
-  button_2.setPressedHandler([](Button2 & b) {
-      Serial.println("Down...");
-      if(current_sprite == controlled_load_sprite) {
-        if(channels.general.descriptor != DESCRIPTOR_UNKNOWN) {
-          current_sprite = general_sprite;
-          place_sprites();
-        } else if(channels.feed_in.descriptor != DESCRIPTOR_UNKNOWN) {
-          current_sprite = feed_in_sprite;
-          place_sprites();
-        }
-      } else if(current_sprite == general_sprite) {
-        if(channels.feed_in.descriptor != DESCRIPTOR_UNKNOWN) {
-          current_sprite = feed_in_sprite;
-          place_sprites();
-        }
-      }
-  });
+  button_1.setPressedHandler(onUp);
+  button_2.setPressedHandler(onDown);
 
   tft.init();
   tft.setRotation(1);
@@ -457,40 +356,52 @@ void loop()
     return;
   }
 
-
   if ((millis() - last_run) > TIMER_DELAY)
   {
     Serial.println("Checking the price");
     channels_t channels = fetch();
-    
-    if(price_sprite_a.created()) {
+
+    if (price_sprite_a.created())
+    {
       price_sprite_a.deleteSprite();
     }
     price_sprite_a.createSprite(tft.height(), tft.height());
     price_sprite_a.setTextSize(3);
-    price_sprite_a.setCursor(0, 0); 
+    price_sprite_a.setCursor(0, 0);
     price_sprite_a.setTextDatum(MC_DATUM);
     price_sprite_a.setSwapBytes(true);
 
-    if(price_sprite_b.created()) {
+    if (price_sprite_b.created())
+    {
       price_sprite_b.deleteSprite();
     }
-    
+
     price_sprite_b.createSprite(tft.height(), tft.height());
     price_sprite_b.setTextSize(3);
-    price_sprite_b.setCursor(0, 0); 
+    price_sprite_b.setCursor(0, 0);
     price_sprite_b.setTextDatum(MC_DATUM);
     price_sprite_b.setSwapBytes(true);
 
-    if(first_run) {
-      first_run = false;
-      tft.fillRect(0, 0, 240, 135, TFT_AMBER_DARK_BLUE);
+    if (first_run)
+    {
+      current_screen = SCREEN_GENERAL;
     }
-    
-    render_general_price(&price_sprite_a, &(channels.general));
-    render_feed_in(&price_sprite_b, &(channels.feed_in));
-    
-    if(first_run) {
+
+    if (current_screen == SCREEN_GENERAL)
+    {
+      render_general_price(&price_sprite_a, &(channels.general));
+    }
+    else if (current_screen == SCREEN_FEED_IN)
+    {
+      render_feed_in(&price_sprite_a, &(channels.feed_in));
+    }
+    else if (current_screen == SCREEN_CONTROLLED_LOAD)
+    {
+      render_controlled_load_price(&price_sprite_a, &(channels.controlled_load));
+    }
+
+    if (first_run)
+    {
       first_run = false;
       tft.fillRect(0, 0, 240, 135, TFT_AMBER_DARK_BLUE);
     }

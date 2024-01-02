@@ -1,0 +1,172 @@
+#include "render.h"
+#include "price_extremely_low.h"
+#include "price_very_low.h"
+#include "price_low.h"
+#include "price_neutral.h"
+#include "price_high.h"
+#include "price_spike.h"
+#include "price_negative_feed_in.h"
+#include "price_solar_feed_in.h"
+#include "price_spike_feed_in.h"
+#include "font_large.h"
+
+void render_price(TFT_eSprite *sprite, float price, uint16_t text_colour, const unsigned short (*background)[18225])
+{
+  sprite->loadFont(NotoSansBold36);
+  sprite->setTextColor(text_colour);
+  sprite->pushImage(0, 0, sprite->width(), sprite->height(), *background);
+  char formatted[7];
+  char *ptr = (char *)&formatted;
+  memset(ptr, 0, 7);
+  if (abs(price) > 100)
+  {
+    snprintf(ptr, 7, "$%g", round(price / 100));
+  }
+  else
+  {
+    snprintf(ptr, 7, "%gc", round(price));
+  }
+  sprite->drawString(ptr, sprite->width() / 2, sprite->height() / 2);
+  sprite->unloadFont();
+}
+
+void render_controlled_load_price(TFT_eSprite *sprite, price_t *price)
+{
+  switch (price->descriptor)
+  {
+  case DESCRIPTOR_SPIKE:
+  {
+    Serial.printf("Price Spike!: %f\n", price->price);
+    render_price(sprite, price->price, TFT_WHITE, &price_spike);
+    break;
+  }
+  case DESCRIPTOR_HIGH:
+  {
+    Serial.printf("High prices: %f\n", price->price);
+    render_price(sprite, price->price, TFT_AMBER_DARK_BLUE, &price_high);
+    break;
+  }
+  case DESCRIPTOR_NEUTRAL:
+  {
+    Serial.printf("Average prices: %f\n", price->price);
+    render_price(sprite, price->price, TFT_AMBER_DARK_BLUE, &price_neutral);
+    break;
+  }
+  case DESCRIPTOR_LOW:
+  {
+    Serial.printf("Low prices: %f\n", price->price);
+    render_price(sprite, price->price, TFT_AMBER_DARK_BLUE, &price_low);
+    break;
+  }
+  case DESCRIPTOR_VERY_LOW:
+  {
+    Serial.printf("Very Low prices: %f\n", price->price);
+    render_price(sprite, price->price, TFT_AMBER_DARK_BLUE, &price_very_low);
+    break;
+  }
+  case DESCRIPTOR_EXTREMELY_LOW:
+  {
+    Serial.printf("Extremely low prices: %f\n", price->price);
+    render_price(sprite, price->price, TFT_AMBER_DARK_BLUE, &price_extremely_low);
+    break;
+  }
+  default:
+  {
+    Serial.printf("Unknown Controlled Load Price\n");
+  }
+  }
+}
+
+void render_general_price(TFT_eSprite *sprite, price_t *price)
+{
+  switch (price->descriptor)
+  {
+  case DESCRIPTOR_SPIKE:
+  {
+    Serial.printf("Price Spike!: %f\n", price->price);
+    render_price(sprite, price->price, TFT_WHITE, &price_spike);
+    break;
+  }
+  case DESCRIPTOR_HIGH:
+  {
+    Serial.printf("High prices: %f\n", price->price);
+    render_price(sprite, price->price, TFT_AMBER_DARK_BLUE, &price_high);
+    break;
+  }
+  case DESCRIPTOR_NEUTRAL:
+  {
+    Serial.printf("Average prices: %f\n", price->price);
+    render_price(sprite, price->price, TFT_AMBER_DARK_BLUE, &price_neutral);
+    break;
+  }
+  case DESCRIPTOR_LOW:
+  {
+    Serial.printf("Low prices: %f\n", price->price);
+    render_price(sprite, price->price, TFT_AMBER_DARK_BLUE, &price_low);
+    break;
+  }
+  case DESCRIPTOR_VERY_LOW:
+  {
+    Serial.printf("Very Low prices: %f\n", price->price);
+    render_price(sprite, price->price, TFT_AMBER_DARK_BLUE, &price_very_low);
+    break;
+  }
+  case DESCRIPTOR_EXTREMELY_LOW:
+  {
+    Serial.printf("Extremely low prices: %f\n", price->price);
+    render_price(sprite, price->price, TFT_AMBER_DARK_BLUE, &price_extremely_low);
+    break;
+  }
+  default:
+  {
+    Serial.printf("Unknown General Price\n");
+  }
+  }
+}
+
+void render_feed_in(TFT_eSprite *sprite, price_t *price)
+{
+  switch (price->descriptor)
+  {
+  case DESCRIPTOR_SPIKE:
+  {
+    Serial.printf("Price Spike!: %f\n", price->price);
+    render_price(sprite, -1 * price->price, TFT_AMBER_DARK_BLUE, &price_spike_feed_in);
+    break;
+  }
+  case DESCRIPTOR_HIGH:
+  {
+    Serial.printf("High prices: %f\n", price->price);
+    render_price(sprite, -1 * price->price, TFT_AMBER_DARK_BLUE, &price_solar_feed_in);
+    break;
+  }
+  case DESCRIPTOR_NEUTRAL:
+  {
+    Serial.printf("Average prices: %f\n", price->price);
+    render_price(sprite, -1 * price->price, TFT_AMBER_DARK_BLUE, &price_solar_feed_in);
+    break;
+  }
+  case DESCRIPTOR_LOW:
+  {
+    Serial.printf("Low prices: %f\n", price->price);
+    render_price(sprite, -1 * price->price, TFT_AMBER_DARK_BLUE, &price_solar_feed_in);
+    break;
+  }
+  case DESCRIPTOR_VERY_LOW:
+  {
+    Serial.printf("Very Low prices: %f\n", price->price);
+    render_price(sprite, -1 * price->price, TFT_AMBER_DARK_BLUE, &price_solar_feed_in);
+    break;
+  }
+  case DESCRIPTOR_EXTREMELY_LOW:
+  {
+    Serial.printf("Extremely low prices: %f\n", price->price);
+    render_price(sprite, -1 * price->price, TFT_AMBER_RED, &price_negative_feed_in);
+    break;
+  }
+  default:
+  {
+    Serial.printf("Unknown Feed In Price\n");
+  }
+  }
+}
