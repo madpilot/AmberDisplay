@@ -174,3 +174,40 @@ void render_feed_in(TFT_eSprite *sprite, price_t *price)
   }
   }
 }
+
+bool animating(animation_state_t *state)
+{
+  return state->current_frame < state->target_frame;
+}
+
+void animate(animation_state_t *state)
+{
+  if (!animating(state))
+  {
+    return;
+  }
+
+  int height = state->tft->height();
+
+  int x = state->tft->width() / 2 - state->price_sprite_a->width() / 2;
+  int y = height / 2 - state->price_sprite_a->height() / 2;
+
+  state->current_frame++;
+  if (state->current_frame >= state->target_frame)
+  {
+    state->current_frame = state->target_frame;
+  }
+
+  int steps = height * state->current_frame / state->target_frame;
+
+  if (state->direction == DIRECTION_DOWN)
+  {
+    state->price_sprite_a->pushSprite(x, y - steps);
+    state->price_sprite_b->pushSprite(x, y + height - steps);
+  }
+  else if (state->direction == DIRECTION_UP)
+  {
+    state->price_sprite_b->pushSprite(x, y - height + steps);
+    state->price_sprite_a->pushSprite(x, y + steps);
+  }
+}

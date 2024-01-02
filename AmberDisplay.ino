@@ -15,9 +15,12 @@
 #define BUFFER_SIZE 1024
 #define WIFI_ATTEMPTS 10
 #define TIMER_DELAY 60000
+#define ANIMATION_PERIOD 100
 
-#define BUTTON_1 35
-#define BUTTON_2 0
+#define ANIMATION_SPEED 5
+
+#define BUTTON_UP 35
+#define BUTTON_DOWN 0
 
 typedef enum
 {
@@ -31,11 +34,16 @@ TFT_eSPI tft = TFT_eSPI();
 TFT_eSprite price_sprite_a = TFT_eSprite(&tft);
 TFT_eSprite price_sprite_b = TFT_eSprite(&tft);
 
-Button2 button_1(BUTTON_1);
-Button2 button_2(BUTTON_2);
+Button2 button_up(BUTTON_UP);
+Button2 button_down(BUTTON_DOWN);
 
-bool animating = false;
-bool first_run = false;
+animation_state_t animation = {
+    .current_frame = 0,
+    .target_frame = 0,
+    .direction = DIRECTION_DOWN,
+    .tft = &tft,
+    .price_sprite_a = &price_sprite_a,
+    .price_sprite_b = &price_sprite_b};
 
 price_t general = {
     .descriptor = DESCRIPTOR_UNKNOWN,
@@ -53,6 +61,9 @@ channels_t channels = {
     .controlled_load = controlled_load};
 
 screens_t current_screen = SCREEN_SPLASH;
+
+unsigned long last_run = 0;
+unsigned long last_animation = 0;
 
 void set_clock()
 {
@@ -86,7 +97,6 @@ void set_clock()
   Serial.print(asctime(&timeinfo));
 }
 
-unsigned long last_run = 0;
 bool connect()
 {
   Serial.print("Connecting to WiFi");
@@ -265,23 +275,36 @@ channels_t fetch()
   return channels;
 }
 
-void place_sprites()
+void setup_sprite(TFT_eSprite *sprite)
 {
-  int offset = 0;
-  int height = tft.height();
-  int x = tft.width() / 2 - price_sprite_a.width() / 2;
-  int y = tft.height() / 2 - price_sprite_a.height() / 2;
-  price_sprite_a.pushSprite(x, y);
+  if (sprite->created())
+  {
+    sprite->deleteSprite();
+  }
+  sprite->createSprite(tft.height(), tft.height());
+  sprite->setTextSize(3);
+  sprite->setCursor(0, 0);
+  sprite->setTextDatum(MC_DATUM);
+  sprite->setSwapBytes(true);
 }
 
-void onUp(Button2 &btn)
+void start_animation(int num_frames, animation_direction_t direction)
+{
+  animation.current_frame = 0;
+  animation.target_frame = num_frames;
+  animation.direction = direction;
+}
+
+void on_up_button(Button2 &btn)
 {
   if (current_screen == SCREEN_GENERAL)
   {
     if (channels.controlled_load.descriptor != DESCRIPTOR_UNKNOWN)
     {
       current_screen = SCREEN_CONTROLLED_LOAD;
-      render_controlled_load_price(&price_sprite_a, &(channels.controlled_load));
+      render_general_price(&price_sprite_a, &(channels.general));
+      render_controlled_load_price(&price_sprite_b, &(channels.controlled_load));
+      start_animation(ANIMATION_SPEED, DIRECTION_UP);
     }
   }
   else if (current_screen == SCREEN_FEED_IN)
@@ -289,18 +312,21 @@ void onUp(Button2 &btn)
     if (channels.general.descriptor != DESCRIPTOR_UNKNOWN)
     {
       current_screen = SCREEN_GENERAL;
-      render_general_price(&price_sprite_a, &(channels.general));
+      render_feed_in(&price_sprite_a, &(channels.feed_in));
+      render_general_price(&price_sprite_b, &(channels.general));
+      start_animation(ANIMATION_SPEED, DIRECTION_UP);
     }
     else if (channels.controlled_load.descriptor != DESCRIPTOR_UNKNOWN)
     {
       current_screen = SCREEN_CONTROLLED_LOAD;
-      render_controlled_load_price(&price_sprite_a, &(channels.controlled_load));
+      render_feed_in(&price_sprite_a, &(channels.feed_in));
+      render_controlled_load_price(&price_sprite_b, &(channels.controlled_load));
+      start_animation(ANIMATION_SPEED, DIRECTION_UP);
     }
   }
-  place_sprites();
 }
 
-void onDown(Button2 &btn)
+void on_down_button(Button2 &btn)
 {
   if (current_screen == SCREEN_GENERAL)
   {
@@ -309,7 +335,9 @@ void onDown(Button2 &btn)
     {
       current_screen = SCREEN_FEED_IN;
       Serial.println("Rendering Feed in");
-      render_feed_in(&price_sprite_a, &(channels.feed_in));
+      render_general_price(&price_sprite_a, &(channels.general));
+      render_feed_in(&price_sprite_b, &(channels.feed_in));
+      start_animation(ANIMATION_SPEED, DIRECTION_DOWN);
     }
   }
   else if (current_screen == SCREEN_CONTROLLED_LOAD)
@@ -317,15 +345,18 @@ void onDown(Button2 &btn)
     if (channels.general.descriptor != DESCRIPTOR_UNKNOWN)
     {
       current_screen = SCREEN_GENERAL;
-      render_general_price(&price_sprite_a, &(channels.general));
+      render_controlled_load_price(&price_sprite_a, &(channels.controlled_load));
+      render_general_price(&price_sprite_b, &(channels.general));
+      start_animation(ANIMATION_SPEED, DIRECTION_DOWN);
     }
     else if (channels.feed_in.descriptor != DESCRIPTOR_UNKNOWN)
     {
       current_screen = SCREEN_FEED_IN;
-      render_feed_in(&price_sprite_a, &(channels.feed_in));
+      render_controlled_load_price(&price_sprite_a, &(channels.controlled_load));
+      render_feed_in(&price_sprite_b, &(channels.feed_in));
+      start_animation(ANIMATION_SPEED, DIRECTION_DOWN);
     }
   }
-  place_sprites();
 }
 
 void setup()
@@ -333,15 +364,16 @@ void setup()
   Serial.begin(115200);
   // Force a run on startup
   last_run = TIMER_DELAY;
+  last_animation = ANIMATION_PERIOD;
 
-  button_1.setPressedHandler(onUp);
-  button_2.setPressedHandler(onDown);
+  button_up.setPressedHandler(on_up_button);
+  button_down.setPressedHandler(on_down_button);
 
   tft.init();
   tft.setRotation(1);
   tft.setSwapBytes(true);
   tft.pushImage(0, 0, 240, 135, splash_image);
-  first_run = true;
+  current_screen = SCREEN_SPLASH;
   WiFi.begin(WIFI_SSID, WIFI_PASSKEY);
 }
 
@@ -356,38 +388,15 @@ void loop()
     return;
   }
 
-  if ((millis() - last_run) > TIMER_DELAY)
+  if (!animating(&animation) && (millis() - last_run) > TIMER_DELAY)
   {
     Serial.println("Checking the price");
     channels_t channels = fetch();
 
-    if (price_sprite_a.created())
-    {
-      price_sprite_a.deleteSprite();
-    }
-    price_sprite_a.createSprite(tft.height(), tft.height());
-    price_sprite_a.setTextSize(3);
-    price_sprite_a.setCursor(0, 0);
-    price_sprite_a.setTextDatum(MC_DATUM);
-    price_sprite_a.setSwapBytes(true);
+    setup_sprite(&price_sprite_a);
+    setup_sprite(&price_sprite_b);
 
-    if (price_sprite_b.created())
-    {
-      price_sprite_b.deleteSprite();
-    }
-
-    price_sprite_b.createSprite(tft.height(), tft.height());
-    price_sprite_b.setTextSize(3);
-    price_sprite_b.setCursor(0, 0);
-    price_sprite_b.setTextDatum(MC_DATUM);
-    price_sprite_b.setSwapBytes(true);
-
-    if (first_run)
-    {
-      current_screen = SCREEN_GENERAL;
-    }
-
-    if (current_screen == SCREEN_GENERAL)
+    if (current_screen == SCREEN_GENERAL || current_screen == SCREEN_SPLASH)
     {
       render_general_price(&price_sprite_a, &(channels.general));
     }
@@ -400,14 +409,25 @@ void loop()
       render_controlled_load_price(&price_sprite_a, &(channels.controlled_load));
     }
 
-    if (first_run)
+    if (current_screen == SCREEN_SPLASH)
     {
-      first_run = false;
+      current_screen = SCREEN_GENERAL;
       tft.fillRect(0, 0, 240, 135, TFT_AMBER_DARK_BLUE);
     }
 
-    place_sprites();
+    int offset = 0;
+    int height = tft.height();
+    int x = tft.width() / 2 - price_sprite_a.width() / 2;
+    int y = tft.height() / 2 - price_sprite_a.height() / 2;
+    price_sprite_a.pushSprite(x, y);
+
     last_run = millis();
+  }
+
+  if ((millis() - last_animation) > ANIMATION_PERIOD)
+  {
+    animate(&animation);
+    last_animation = millis();
   }
 
   button_1.loop();

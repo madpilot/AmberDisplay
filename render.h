@@ -10,7 +10,26 @@
 #define TFT_AMBER_RED 0xF38C
 #define TFT_AMBER_DARK_RED 0xB8C1
 
+typedef enum
+{
+  DIRECTION_UP = -1,
+  DIRECTION_DOWN = 1
+} animation_direction_t;
+
+typedef struct _animation_state
+{
+  uint8_t current_frame;
+  uint8_t target_frame;
+  animation_direction_t direction;
+  TFT_eSPI *tft;
+  TFT_eSprite *price_sprite_a;
+  TFT_eSprite *price_sprite_b;
+} animation_state_t;
+
 void render_controlled_load_price(TFT_eSprite *sprite, price_t *price);
 void render_general_price(TFT_eSprite *sprite, price_t *price);
 void render_feed_in(TFT_eSprite *sprite, price_t *price);
+
+bool animating(animation_state_t *state);
+void animate(animation_state_t *state);
 #endif
