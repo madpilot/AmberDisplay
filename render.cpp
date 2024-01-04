@@ -29,9 +29,10 @@ void render_price(TFT_eSprite *sprite, float price, uint16_t text_colour, const 
   char formatted[7];
   char *ptr = (char *)&formatted;
   memset(ptr, 0, 7);
-  if (abs(price) > 100)
+  if (abs(price) >= 100)
   {
-    snprintf(ptr, 7, "$%g", round(price / 100));
+    bool negative = price < 0;
+    snprintf(ptr, 7, "%s$%g", negative ? "-" : "", abs(price) / 100);
   }
   else
   {
