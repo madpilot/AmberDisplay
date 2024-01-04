@@ -189,6 +189,14 @@ void render_pills(TFT_eSPI *tft, channels_t *channels, screens_t *current_screen
 {
   uint8_t screen_count = 0;
   uint8_t current = 0;
+  if (channels->controlled_load.descriptor != DESCRIPTOR_UNKNOWN)
+  {
+    if (*current_screen == SCREEN_CONTROLLED_LOAD)
+    {
+      current = screen_count;
+    }
+    screen_count++;
+  }
   if (channels->general.descriptor != DESCRIPTOR_UNKNOWN)
   {
     if (*current_screen == SCREEN_GENERAL)
@@ -200,14 +208,6 @@ void render_pills(TFT_eSPI *tft, channels_t *channels, screens_t *current_screen
   if (channels->feed_in.descriptor != DESCRIPTOR_UNKNOWN)
   {
     if (*current_screen == SCREEN_FEED_IN)
-    {
-      current = screen_count;
-    }
-    screen_count++;
-  }
-  if (channels->controlled_load.descriptor != DESCRIPTOR_UNKNOWN)
-  {
-    if (*current_screen == SCREEN_CONTROLLED_LOAD)
     {
       current = screen_count;
     }
