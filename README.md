@@ -2,6 +2,8 @@
 
 Arduino project to show the current Amber Price on a TTGO T-Display.
 
+https://github.com/madpilot/AmberDisplay/assets/19585/f0b9a01d-0ebd-4fdc-8f1f-225864d6ac0a
+
 ## Requirements
 
 - Arduino 1.8.x IDE
