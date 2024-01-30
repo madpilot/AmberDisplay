@@ -10,6 +10,7 @@ https://github.com/madpilot/AmberDisplay/assets/19585/f0b9a01d-0ebd-4fdc-8f1f-22
 - [Button2](https://github.com/LennartHennigs/Button2) library by Lennart Hennings
 - [HttpClient](http://github.com/amcewen/HttpClient) library by Adrian McEwen
 - [ArduinoJson](https://arduinojson.org/) library by Beniot Elanchon
+- [TTGO fork of TFT_eSPI](https://github.com/Xinyuan-LilyGO/TTGO-T-Display) 
 
 ## Setup
 
